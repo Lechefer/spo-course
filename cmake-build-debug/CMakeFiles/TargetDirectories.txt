@@ -1,0 +1,4 @@
+/home/lechefer/Рабочий стол/VUZ/СПО/kursach/cmake-build-debug/CMakeFiles/admin_panel_executor.cpp.dir
+/home/lechefer/Рабочий стол/VUZ/СПО/kursach/cmake-build-debug/CMakeFiles/terminal_executor.cpp.dir
+/home/lechefer/Рабочий стол/VUZ/СПО/kursach/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/lechefer/Рабочий стол/VUZ/СПО/kursach/cmake-build-debug/CMakeFiles/rebuild_cache.dir
