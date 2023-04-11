@@ -22,7 +22,7 @@ void menu() {
             cout << "[12] Изменить состояние" << endl;
 
             cout << "[21] Текущее ПО" << endl;
-            cout << "[22] Устновить ПО" << endl;
+            cout << "[22] Установить ПО" << endl;
             cout << "[23] Обновить ПО" << endl;
             cout << "[24] Удалить ПО" << endl;
 
@@ -51,14 +51,20 @@ void menu() {
                     int chose;
                     cin >> chose;
 
-                    TerminalState state;
+                    TerminalState state = TerminalState::Undefined;
                     switch (chose) {
                         case 1:
                             state = TerminalState::Online;
+                            break;
                         case 2:
                             state = TerminalState::Offline;
+                            break;
                         case -1:
                             continue;
+                            break;
+                        default:
+                            cout << "Некорректное значение" << endl;
+                            break;
                     }
 
                     if (!adminPanel.SetTerminalState(adminPanel.GetChosedTerminal().pid, state)) {
@@ -108,7 +114,7 @@ void menu() {
                     }
 
                     num -= 1;
-                    if (num > software.size() || num < software.size()) {
+                    if (num > software.size() || num < 0) {
                         cout << "Некорректные данные" << endl;
                         continue;
                     }
@@ -141,7 +147,7 @@ void menu() {
                     }
 
                     num -= 1;
-                    if (num > software.size() || num < software.size()) {
+                    if (num > software.size() || num < 0) {
                         cout << "Некорректные данные" << endl;
                         continue;
                     }
@@ -189,7 +195,7 @@ void menu() {
                     }
 
                     num -= 1;
-                    if (num > users.size() || num < users.size()) {
+                    if (num > users.size() || num < 0) {
                         cout << "Некорректные данные" << endl;
                         continue;
                     }
@@ -222,7 +228,7 @@ void menu() {
                                 }
 
                                 numInner -= 1;
-                                if (numInner > software.size() || numInner < software.size()) {
+                                if (numInner > software.size() || numInner < 0) {
                                     cout << "Некорректные данные" << endl;
                                     continue;
                                 }
@@ -245,7 +251,7 @@ void menu() {
                                 }
 
                                 numInner -= 1;
-                                if (numInner > software.size() || numInner < software.size()) {
+                                if (numInner > software.size() || numInner < 0) {
                                     cout << "Некорректные данные" << endl;
                                     continue;
                                 }
@@ -285,7 +291,7 @@ void menu() {
                     }
 
                     num -= 1;
-                    if (num > users.size() || num < users.size()) {
+                    if (num > users.size() || num < 0) {
                         cout << "Некорректные данные" << endl;
                         continue;
                     }
@@ -297,12 +303,12 @@ void menu() {
                     break;
                 }
                 case 41: {
-                    User *logginedUser = adminPanel.GetLogginedUser(terminal.pid);
-                    if (logginedUser == nullptr) {
+                    tuple<User, bool> tpl = adminPanel.GetLogginedUser(terminal.pid);
+                    if (!get<1>(tpl)) {
                         cout << "Сейчас никто из пользователей не занял сеанс" << endl;
                         continue;
                     }
-                    cout << "Пользователь текущего сеанса: " << logginedUser->username << endl;
+                    cout << "Пользователь текущего сеанса: " << get<0>(tpl).username << endl;
                     break;
                 }
                 case 0: {
@@ -352,11 +358,19 @@ void menu() {
                     break;
                 }
                 case 3: {
-                    cout << "unrealized";
+                    for (auto &terminal: adminPanel.GetTerminals()) {
+                        if (!adminPanel.SetTerminalState(terminal.pid, TerminalState::Offline)) {
+                            cout << "Изменить состояние терминала с PID " << terminal.pid <<" не удалось" << endl;
+                        }
+                    }
                     break;
                 }
                 case 4: {
-                    cout << "unrealized";
+                    for (auto &terminal: adminPanel.GetTerminals()) {
+                        if (!adminPanel.SetTerminalState(terminal.pid, TerminalState::Online)) {
+                            cout << "Изменить состояние терминала с PID " << terminal.pid <<" не удалось" << endl;
+                        }
+                    }
                     break;
                 }
                 case 0: {
@@ -373,7 +387,7 @@ void menu() {
 int main() {
     // messages
     key_t key = ftok("/tmp", 's');
-    int queue_id = msgget(key, IPC_CREAT | 0666);
+    int queue_id = msgget(key, IPC_CREAT | 0644);
 
     if (queue_id == -1) {
         std::cout << "Ошибка при создании очереди сообщений" << std::endl;

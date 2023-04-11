@@ -21,35 +21,39 @@
 
 using namespace std;
 
-void send_message(int qid, long type, Request req)
-{
-    printf("Sending a message ...\n");
+void send_message(int qid, long type, Request req) {
     struct Message msg;
     msg.mtype = type;
+    std::memset(msg.mtext, '\0', sizeof(msg.mtext));
+
     nh::json j = req;
+    msg.mtext_len = to_string(j).length();
     strcpy(msg.mtext, to_string(j).c_str());
-    if((msgsnd(qid, &msg, sizeof(Message) - sizeof(long), 0)) == -1)
-    {
+
+    if ((msgsnd(qid, &msg, std::strlen(msg.mtext) + 1 + sizeof(msg.mtext_len), IPC_NOWAIT)) == -1) {
         perror("msgsnd");
+        return;
     }
 }
 
-Response read_message(int qid, long type)
-{
-    printf("Reading a message ...");
-    struct Message qbuf;
-    qbuf.mtype = type;
-    if (msgrcv(qid, (struct Message *)&qbuf, MAX_SEND_SIZE, type, 0) == -1) {
-        perror("msgrcv");
+Response read_message(int qid, long type) {
+    struct Message msg;
+    msg.mtype = type;
+    std::memset(msg.mtext, '\0', sizeof(msg.mtext));
+    if (msgrcv(qid, (struct Message *) &msg, sizeof(Message), type, 0) == -1) {
+        // perror("msgrcv");
+        return Response{};
     }
 
-    nh::json j = nh::json::parse(qbuf.mtext);
+    string str(msg.mtext, msg.mtext + msg.mtext_len);
+
+    nh::json j = nh::json::parse(str);
     return j.get<Response>();
 }
 
 AdminPanel::AdminPanel(int queue_id) {
     msg_queue_id = queue_id;
-    handshake_counter = 0;
+    handshake_counter = 1;
 
     terminals = vector<Terminal>();
 }
@@ -106,7 +110,7 @@ TerminalState AdminPanel::GetTerminalState(pid_t pid) {
 
     send_message(this->msg_queue_id, terminal.handshake_id, request);
 
-    Response response = read_message(this->msg_queue_id, terminal.handshake_id);
+    Response response = read_message(this->msg_queue_id, terminal.handshake_id + 1);
     if (response.status != 200) {
         return TerminalState::Undefined;
     }
@@ -134,19 +138,13 @@ bool AdminPanel::SetTerminalState(pid_t pid, TerminalState state) {
 vector<Software> AdminPanel::GetSoftware(pid_t pid) {
     Terminal terminal = getTerminalByPID(pid);
 
-    Message msg{};
-    msg.mtype = terminal.handshake_id;
-
     Request request{};
     request.route = "software";
 
-    nh::json j = request;
-//    msg.data = to_string(j);
-    msgsnd(this->msg_queue_id, &request, sizeof(request) - sizeof(long), 0);
+    send_message(this->msg_queue_id, terminal.handshake_id, request);
 
-    Response response{};
-    int result = msgrcv(this->msg_queue_id, &response, sizeof(response) - sizeof(long), terminal.handshake_id + 1, 0);
-    if (result == -1 || response.status != 200) {
+    Response response = read_message(this->msg_queue_id, terminal.handshake_id + 1);
+    if (response.status != 200) {
         return vector<Software>();
     }
 
@@ -156,20 +154,14 @@ vector<Software> AdminPanel::GetSoftware(pid_t pid) {
 bool AdminPanel::InstallSoftware(pid_t pid, Software software) {
     Terminal terminal = getTerminalByPID(pid);
 
-    Message msg{};
-    msg.mtype = terminal.handshake_id;
-
     Request request{};
     request.route = "install software";
     request.software = software;
 
-    nh::json j = request;
-//    msg.data = to_string(j);
-    msgsnd(this->msg_queue_id, &request, sizeof(request) - sizeof(long), 0);
+    send_message(this->msg_queue_id, terminal.handshake_id, request);
 
-    Response response{};
-    int result = msgrcv(this->msg_queue_id, &response, sizeof(response) - sizeof(long), terminal.handshake_id + 1, 0);
-    if (result == -1 || response.status != 200) {
+    Response response = read_message(this->msg_queue_id, terminal.handshake_id + 1);
+    if (response.status != 200) {
         return false;
     }
 
@@ -179,21 +171,15 @@ bool AdminPanel::InstallSoftware(pid_t pid, Software software) {
 bool AdminPanel::UpdateSoftware(pid_t pid, Software oldSoftware, Software software) {
     Terminal terminal = getTerminalByPID(pid);
 
-    Message msg{};
-    msg.mtype = terminal.handshake_id;
-
     Request request{};
     request.route = "update software";
     request.oldSoftware = oldSoftware;
     request.software = software;
 
-    nh::json j = request;
-//    msg.data = to_string(j);
-    msgsnd(this->msg_queue_id, &request, sizeof(request) - sizeof(long), 0);
+    send_message(this->msg_queue_id, terminal.handshake_id, request);
 
-    Response response{};
-    int result = msgrcv(this->msg_queue_id, &response, sizeof(response) - sizeof(long), terminal.handshake_id + 1, 0);
-    if (result == -1 || response.status != 200) {
+    Response response = read_message(this->msg_queue_id, terminal.handshake_id + 1);
+    if (response.status != 200) {
         return false;
     }
 
@@ -203,20 +189,14 @@ bool AdminPanel::UpdateSoftware(pid_t pid, Software oldSoftware, Software softwa
 bool AdminPanel::RemoveSoftware(pid_t pid, Software software) {
     Terminal terminal = getTerminalByPID(pid);
 
-    Message msg{};
-    msg.mtype = terminal.handshake_id;
-
     Request request{};
     request.route = "remove software";
     request.software = software;
 
-    nh::json j = request;
-//    msg.data = to_string(j);
-    msgsnd(this->msg_queue_id, &request, sizeof(request) - sizeof(long), 0);
+    send_message(this->msg_queue_id, terminal.handshake_id, request);
 
-    Response response{};
-    int result = msgrcv(this->msg_queue_id, &response, sizeof(response) - sizeof(long), terminal.handshake_id + 1, 0);
-    if (result == -1 || response.status != 200) {
+    Response response = read_message(this->msg_queue_id, terminal.handshake_id + 1);
+    if (response.status != 200) {
         return false;
     }
 
@@ -226,19 +206,13 @@ bool AdminPanel::RemoveSoftware(pid_t pid, Software software) {
 vector<User> AdminPanel::GetUsers(pid_t pid) {
     Terminal terminal = getTerminalByPID(pid);
 
-    Message msg{};
-    msg.mtype = terminal.handshake_id;
-
     Request request{};
     request.route = "users";
 
-    nh::json j = request;
-//    msg.data = to_string(j);
-    msgsnd(this->msg_queue_id, &request, sizeof(request) - sizeof(long), 0);
+    send_message(this->msg_queue_id, terminal.handshake_id, request);
 
-    Response response{};
-    int result = msgrcv(this->msg_queue_id, &response, sizeof(response) - sizeof(long), terminal.handshake_id + 1, 0);
-    if (result == -1 || response.status != 200) {
+    Response response = read_message(this->msg_queue_id, terminal.handshake_id + 1);
+    if (response.status != 200) {
         return vector<User>();
     }
 
@@ -248,20 +222,14 @@ vector<User> AdminPanel::GetUsers(pid_t pid) {
 bool AdminPanel::AddUser(pid_t pid, User user) {
     Terminal terminal = getTerminalByPID(pid);
 
-    Message msg{};
-    msg.mtype = terminal.handshake_id;
-
     Request request{};
     request.route = "add user";
     request.user = user;
 
-    nh::json j = request;
-//    msg.data = to_string(j);
-    msgsnd(this->msg_queue_id, &request, sizeof(request) - sizeof(long), 0);
+    send_message(this->msg_queue_id, terminal.handshake_id, request);
 
-    Response response{};
-    int result = msgrcv(this->msg_queue_id, &response, sizeof(response) - sizeof(long), terminal.handshake_id + 1, 0);
-    if (result == -1 || response.status != 200) {
+    Response response = read_message(this->msg_queue_id, terminal.handshake_id + 1);
+    if (response.status != 200) {
         return false;
     }
 
@@ -271,21 +239,15 @@ bool AdminPanel::AddUser(pid_t pid, User user) {
 bool AdminPanel::ChangeUserRights(pid_t pid, User oldUser, User user) {
     Terminal terminal = getTerminalByPID(pid);
 
-    Message msg{};
-    msg.mtype = terminal.handshake_id;
-
     Request request{};
     request.route = "change user rights";
     request.oldUser = oldUser;
     request.user = user;
 
-    nh::json j = request;
-//    msg.data = to_string(j);
-    msgsnd(this->msg_queue_id, &request, sizeof(request) - sizeof(long), 0);
+    send_message(this->msg_queue_id, terminal.handshake_id, request);
 
-    Response response{};
-    int result = msgrcv(this->msg_queue_id, &response, sizeof(response) - sizeof(long), terminal.handshake_id + 1, 0);
-    if (result == -1 || response.status != 200) {
+    Response response = read_message(this->msg_queue_id, terminal.handshake_id + 1);
+    if (response.status != 200) {
         return false;
     }
 
@@ -295,46 +257,34 @@ bool AdminPanel::ChangeUserRights(pid_t pid, User oldUser, User user) {
 bool AdminPanel::RemoveUser(pid_t pid, User user) {
     Terminal terminal = getTerminalByPID(pid);
 
-    Message msg{};
-    msg.mtype = terminal.handshake_id;
-
     Request request{};
     request.route = "remove user";
     request.user = user;
 
-    nh::json j = request;
-//    msg.data = to_string(j);
-    msgsnd(this->msg_queue_id, &request, sizeof(request) - sizeof(long), 0);
+    send_message(this->msg_queue_id, terminal.handshake_id, request);
 
-    Response response{};
-    int result = msgrcv(this->msg_queue_id, &response, sizeof(response) - sizeof(long), terminal.handshake_id + 1, 0);
-    if (result == -1 || response.status != 200) {
+    Response response = read_message(this->msg_queue_id, terminal.handshake_id + 1);
+    if (response.status != 200) {
         return false;
     }
 
     return true;
 }
 
-User *AdminPanel::GetLogginedUser(pid_t pid) {
+tuple<User, bool> AdminPanel::GetLogginedUser(pid_t pid) {
     Terminal terminal = getTerminalByPID(pid);
-
-    Message msg{};
-    msg.mtype = terminal.handshake_id;
 
     Request request{};
     request.route = "current loggined user";
 
-    nh::json j = request;
-//    msg.data = to_string(j);
-    msgsnd(this->msg_queue_id, &request, sizeof(request) - sizeof(long), 0);
+    send_message(this->msg_queue_id, terminal.handshake_id, request);
 
-    Response response{};
-    int result = msgrcv(this->msg_queue_id, &response, sizeof(response) - sizeof(long), terminal.handshake_id + 1, 0);
-    if (result == -1 || response.status != 200) {
-        return nullptr;
+    Response response = read_message(this->msg_queue_id, terminal.handshake_id + 1);
+    if (response.status != 200 || !response.is_logined) {
+        return {User{}, false};
     }
 
-    return response.current_loggined_user;
+    return {response.current_loggined_user, true};
 }
 
 Terminal AdminPanel::getTerminalByPID(pid_t pid) {

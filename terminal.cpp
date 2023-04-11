@@ -33,8 +33,8 @@ bool Terminal::UpdateSoftware(Software oldsw, Software sw) {
 }
 
 bool Terminal::RemoveSoftware(Software sw) {
-    vector<Software> isw = this->installed_software;
-    isw.erase(std::remove(isw.begin(), isw.end(), sw), isw.end());
+    vector<Software> *isw = &this->installed_software;
+    isw->erase(std::remove(isw->begin(), isw->end(), sw), isw->end());
     return true;
 }
 
@@ -55,8 +55,8 @@ bool Terminal::ChangeUserRights(User olduser, User user) {
 }
 
 bool Terminal::RemoveUser(User user) {
-    vector<User> us = this->users;
-    us.erase(std::remove(us.begin(), us.end(), user), us.end());
+    vector<User> *us = &this->users;
+    us->erase(std::remove(us->begin(), us->end(), user), us->end());
     return true;
 }
 

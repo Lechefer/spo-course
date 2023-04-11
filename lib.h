@@ -32,6 +32,7 @@ const size_t MAX_SEND_SIZE = 1100;
 
 struct Message {
     long mtype;
+    long mtext_len;
     char mtext[MAX_SEND_SIZE];
 };
 
@@ -70,7 +71,9 @@ struct Response {
     TerminalState state;
     vector<User> users;
     vector<Software> software;
-    User *current_loggined_user;
+
+    bool is_logined;
+    User current_loggined_user;
 };
 
 namespace nlohmann {
@@ -78,8 +81,8 @@ namespace nlohmann {
     struct adl_serializer<Software> {
         static Software from_json(const json &j) {
             Software sw;
-            sw.name = j.at("id").get<string>();
-            sw.version = j.at("name").get<string>();
+            sw.name = j.at("name").get<string>();
+            sw.version = j.at("version").get<string>();
             return sw;
         }
 
@@ -108,7 +111,7 @@ namespace nlohmann {
     struct adl_serializer<Request> {
         static Request from_json(const json &j) {
             Request sw;
-            sw.route = j.at("id").get<string>();
+            sw.route = j.at("route").get<string>();
             sw.oldUser = j.at("oldUser").get<User>();
             sw.user = j.at("user").get<User>();
             sw.oldSoftware = j.at("oldSoftware").get<Software>();
@@ -120,8 +123,8 @@ namespace nlohmann {
             j["route"] = t.route;
             j["oldUser"] = t.oldUser;
             j["user"] = t.user;
-            j["software"] = t.oldSoftware;
-            j["oldSoftware"] = t.software;
+            j["software"] = t.software;
+            j["oldSoftware"] = t.oldSoftware;
         }
     };
 
@@ -133,6 +136,9 @@ namespace nlohmann {
             u.state = j.at("state").get<TerminalState>();
             u.users = j.at("users").get<vector<User>>();
             u.software = j.at("software").get<vector<Software>>();
+            u.is_logined = j.at("is_logined").get<bool>();
+            u.current_loggined_user = j.at("current_loggined_user").get<User>();
+
             return u;
         }
 
@@ -141,9 +147,8 @@ namespace nlohmann {
             j["state"] = t.state;
             j["users"] = t.users;
             j["software"] = t.software;
-
-            // TODO: refactor
-            // j["username"] = t.current_loggined_user;
+            j["is_logined"] = t.is_logined;
+            j["current_loggined_user"] = t.current_loggined_user;
         }
     };
 }

@@ -57,11 +57,11 @@ public:
 
     bool RemoveUser(pid_t pid, User user);
 
-    User *GetLogginedUser(pid_t pid);
+    tuple<User, bool> GetLogginedUser(pid_t pid);
 
 private:
     int msg_queue_id;
-    int handshake_counter = 0;
+    int handshake_counter;
 
     vector<Terminal> terminals;
     Terminal current_terminal;
